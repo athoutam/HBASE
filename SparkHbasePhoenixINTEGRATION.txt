@@ -1,0 +1,41 @@
+I have data in Hbase. I want to Integrate Hbase with Spark.
+
+
+package com.bigdata.spark.Git
+
+import org.apache.spark.sql.SparkSession
+import org.apache.phoenix.spark._
+
+import org.apache.spark.sql._
+
+object SparkHbasePhoenixINTEGRATION {
+  def main(args: Array[String]) {
+    val spark = SparkSession.builder.master("local[*]").enableHiveSupport().appName("SparkHbasePhoenixINTEGRATION").getOrCreate()
+    val sc = spark.sparkContext
+
+    import spark.implicits._
+    import spark.sql
+    val df = spark.read.format("org.apache.phoenix").option("table","dept").
+      option("zkUrl","localhost:2181").load()
+    df.show()
+    df.write.format("hive").saveAsTable("dept")
+    spark.stop()
+  }
+}
+
+
+
+/*
+DEPENDENCIES :
+--------------
+1) java.lang.ClassNotFoundException
+To connect Hbase Phoenix first 'phoenix-4.14.3-HBase-1.4-client.jar' is very important and is available at /usr/lib/phoenix.
+2) Add this jar "https://mvnrepository.com/artifact/org.apache.phoenix/phoenix-spark/4.14.3-HBase-1.4"
+3) Add this import org.apache.phoenix.spark._
+4) Spark submit command
+spark-submit --class com.bigdata.spark.Git.SparkHbasePhoenixINTEGRATION --master local --deploy-mode --jars
+$(echo file://home/hadoop/drivers/*.jar | tr '' ',') file://home/hadoop/sparkpoc 2.11-0.1.jar
+SUMMARY :
+---------
+I have table 'dept' in Hbase. I want to copy this table to hive. Here i am trying to Integrate HBase Phoenix with Spark to display the records.
+ */
