@@ -1,0 +1,59 @@
+package com.bigdata.spark.Git
+
+import org.apache.spark.sql.SparkSession
+
+import org.apache.spark.sql._
+
+object CopyHiveTableJSONDataToOracleDB {
+  def main(args: Array[String]) {
+    val spark = SparkSession.builder.master("local[*]").enableHiveSupport().appName("CopyHiveTableJSONDataToOracleDB").getOrCreate()
+    val sc = spark.sparkContext
+
+    import spark.implicits._
+    import spark.sql
+/*  val input = args(0)
+    val output =args(1)
+    val df = spark.read.format("json").load(input)
+Get data from s3 and store this data in hive
+    df.write.format("hive").saveAsTable("ZipHiveSpark")
+Read data from hive to perform some operations
+*/
+    val pro = spark.sql("select city, loc[0] longitude, loc[1] latitude, pop, state, _id id from ziphivespark where state = 'MA'")
+    pro.show(5,false)
+// false will display the entire line of string
+    val host = "jdbc:oracle:thin:@//bigdataoracle.cfpbfnzmymes.ap-south-1.rds.amazonaws.com:1521/ORCL"
+// AWS oracle RDS host
+    val prop = new java.util.Properties()
+    prop.setProperty("user","ousername")
+    prop.setProperty("password","opassword")
+// Oracle DB credentials
+    prop.setProperty("driver", "oracle.jdbc.OracleDriver")
+    pro.write.jdbc(host,"ziphivesparkoracle", prop)
+//Spark creates 'ziphivesparkoracle' table in Oracle.
+    spark.stop()
+  }
+}
+/*
+Summary :
+Here I have 'ZipHiveSpark' table in Hive. I want to copy this table to Amazon AWS RDS Oracle.
+Points to be Noted here :
+1) We are trying to export data from HIVE to Oracle using QUERY in spark which we cant perform using SQOOP.
+We can import data with QUERY using SQOOP but not with export.
+2) In the above code, spark sql query if i specify 'select * from' then it will run to Exception : Can't get jdbc type for array<double>
+So, that's y i have specified required columns individually.
+Steps to perform :
+    1) Create a Jar for above code
+    i.e., right click on build.sbt on Navigator and select "Show in Explorer". Enter cmd on the path. Enter "sbt package".
+    This will generate the Jar file.
+    2) Copy that Jar to EMR hadoop (bydefault file://home/hadoop/sparkpocs_2.11-0.1.jar)
+    3) RUN the Spark submit command on hadoop console.
+    spark-submit --class com.bigdata.spark.Git.CopyHiveTableJSONDataToOracleDB --master local --deploy-mode
+    client --jars s3://aws-logs-917201982557-ap-south-1/Drivers/ojdbc7.jar file://home/hadoop/sparkpocs_2.11-0.1.jar
+    6) Using SQLWorkBench, connect to Oracle
+    7) Enter "show tables;"
+    8) Enter "select * from ziphivesparkoracle limit 5;"
+    9) Add enableHiveSupport() to SparkSession
+    10) Below is the sample top 2 rows JSON Data.
+{ "city" : "AGAWAM", "loc" : [ -72.622739, 42.070206 ], "pop" : 15338, "state" : "MA", "_id" : "01001" }
+{ "city" : "CUSHMAN", "loc" : [ -72.51564999999999, 42.377017 ], "pop" : 36963, "state" : "MA", "_id" : "01002" }
+ */
