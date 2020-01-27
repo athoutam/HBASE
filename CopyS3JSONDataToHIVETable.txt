@@ -1,0 +1,49 @@
+I have JSON data in S3. I want to store this data in HIVE using SPARK.
+
+
+package com.bigdata.spark.Git
+
+import org.apache.spark.sql.SparkSession
+
+import org.apache.spark.sql._
+
+object CopyS3JSONDataToHIVETable {
+  def main(args: Array[String]) {
+    val spark = SparkSession.builder.master("local[*]").enableHiveSupport().appName("ProcessHIVE_JSONDataUsingSpark").getOrCreate()
+    val sc = spark.sparkContext
+
+    import spark.implicits._
+    import spark.sql
+
+    val input = args(0)
+    val output = args(1)
+    val df = spark.read.format("json").option("inferSchema","true").load(input)
+    df.write.format("hive").saveAsTable(output)
+    spark.stop()
+  }
+}
+/*
+Summary :
+I have JSON data in S3. I want to store this data in Hive.
+Points to be Noted here :
+When we do this in Hive under Hadoop, we need to Download the dependency, copy the jar, create a structure to this data.
+Moreover, we when run 'select * from ' column header will be skipped. We need to write code to bring that up
+Underneath HIVE,SQOOP is using MAPREDUCE.
+    Steps to perform :
+    1) Hive doesn't know anything about JSON. So we need to add some connectors jars.
+       These connectors will convert the JSON data to machine understandable format i.e, it performs SERDE
+       To download the connectors on EMR copy this link http://www.congiu.net/hive-json-serde
+       On EMR hadoop console type
+       wget <paste the link>
+    2) Place those in hive/lib
+    3) Create a Jar for above code
+    i.e., right click on build.sbt on Navigator and select "Show in Explorer". Enter cmd on the path. Enter "sbt package".
+    This will generate the Jar file.
+    4) Copy that Jar to EMR hadoop (bydefault file://home/hadoop/sparkpocs_2.11-0.1.jar)
+    5) RUN the Spark submit command on hadoop console.
+    spark-submit --class com.bigdata.spark.Git.CopyS3JSONDataToHIVETable --master local --deploy-mode client file://home/hadoop/sparkpocs_2.11-0.1.jar s3://aws-logs-917201982557-ap-south-1/Data/input/JSON/zips.json ziphivespark
+    6) Go to HIVE
+    7) Enter "show tables;"
+    8) Enter "select * from ziphivespark limit 5;"
+    9) Add enableHiveSupport() to SparkSession
+ */
