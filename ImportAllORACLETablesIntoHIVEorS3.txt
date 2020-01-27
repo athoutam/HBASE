@@ -1,0 +1,56 @@
+package com.bigdata.spark.Git
+
+import org.apache.spark.sql.SparkSession
+
+import org.apache.spark.sql._
+
+object ImportAllORACLETablesIntoHIVEorS3 {
+  def main(args: Array[String]) {
+    //val spark = SparkSession.builder.master("local[*]").appName("ImportAllORACLETablesIntoHBASE").config("spark.sql.warehouse.dir", "/home/hadoop/work/warehouse").enableHiveSupport().getOrCreate()
+    val spark = SparkSession.builder.master("local[*]").appName("ImportAllORACLETablesIntoHBASE").getOrCreate()
+    val sc = spark.sparkContext
+
+    import spark.implicits._
+    import spark.sql
+    val host = "jdbc:oracle:thin:@//oracledb.conbyj3qndaj.ap-south-1.rds.amazonaws.com:1521/ORACLED"
+    val prop = new java.util.Properties()
+    prop.setProperty("User","ousername")
+    prop.setProperty("password","opassword")
+    prop.setProperty("driver","oracle.jdbc.driver.OracleDriver")
+    val query = "(select table_name from all_tables where TABLESPACE_NAME='USERS') tst"  //EMP, DEPT ....
+    // Above query gets all tables from Oracle
+    val alldf = spark.read.jdbc(host, query, prop)
+    val tabs = alldf.select("TABLE_NAME").rdd.map(x=>x(0)).collect.toList
+    // All tables were converted to Array or List
+    tabs.foreach { x =>     // Foreach almost like for loop one by one table will be processed in iterative manner
+      val tab = x.toString()
+      val df = spark.read.jdbc(host, tab, prop)
+      df.write.mode(SaveMode.Append).format("hive").saveAsTable(tab)
+      /*val output = args(0)
+      df.write.mode(SaveMode.Append).format("csv").option("header","true").save(output)
+      //if you want to save data to S3
+       */
+    }
+    spark.stop()
+  }
+}
+
+/*
+DEPENDENCIES :
+--------------
+1) java.lang.ClassNotFoundException
+To connect Hbase Phoenix first 'phoenix-4.14.3-HBase-1.4-client.jar' is very important and is available at /usr/lib/phoenix.
+2) Add this jar "https://mvnrepository.com/artifact/org.apache.phoenix/phoenix-spark/4.14.3-HBase-1.4"
+3) Add this import org.apache.phoenix.spark._
+4) Spark submit command
+spark-submit --class com.bigdata.spark.Git.ImportAllORACLETablesIntoHBASEorS3 --master local --deploy-mode --jars
+$(echo file://home/hadoop/drivers/*.jar | tr '' ',') file://home/hadoop/sparkpoc 2.11-0.1.jar
+5) Add oracle jdbc driver jar.
+
+
+
+SUMMARY :
+I dont know how many tables were there in OracleDB. But, I want to import all table at once from OracleDB to Hbase.
+I dont know how many tables were there in OracleDB. But, I want to import all table at once from OracleDB to Hbase.
+ */
+
